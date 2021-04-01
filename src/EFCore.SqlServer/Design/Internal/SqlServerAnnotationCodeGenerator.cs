@@ -79,6 +79,36 @@ namespace Microsoft.EntityFrameworkCore.SqlServer.Design.Internal
             return fragments;
         }
 
+        ///// <summary>
+        /////     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+        /////     the same compatibility standards as public APIs. It may be changed or removed without notice in
+        /////     any release. You should only use it directly in your code with extreme caution and knowing that
+        /////     doing so can result in application failures when updating to a new Entity Framework Core release.
+        ///// </summary>
+        //public override IReadOnlyList<MethodCallCodeFragment> GenerateFluentApiCalls(
+        //    IEntityType entityType,
+        //    IDictionary<string, IAnnotation> annotations)
+        //{
+        //    var result = base.GenerateFluentApiCalls(entityType, annotations);
+
+        //    // TODO: is this the correct place to do this? - we need to stitch multiple annotations together to build the IsTemporal call
+        //    if (annotations.TryGetValue(SqlServerAnnotationNames.IsTemporal, out var isTemporalAnnotation)
+        //        && isTemporalAnnotation.Value as bool? == true)
+        //    {
+        //        // TODO: check if this is safe - does this run after convention/validation
+        //        // so that all these annotations are guaranteed to be set?
+        //        var periodStartPropertyName = annotations[SqlServerAnnotationNames.TemporalPeriodStartPropertyName].Value as string;
+        //        var periodEndPropertyName = annotations[SqlServerAnnotationNames.TemporalPeriodEndPropertyName].Value as string;
+        //        var historyTableName = annotations[SqlServerAnnotationNames.TemporalHistoryTableName].Value as string;
+
+        //        var isTemporalCall = new MethodCallCodeFragment("IsTemporal", periodStartPropertyName, periodEndPropertyName, historyTableName);
+
+        //        return result.Concat(new[] { isTemporalCall }).ToList();
+        //    }
+
+        //    return result;
+        //}
+
         /// <summary>
         ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
         ///     the same compatibility standards as public APIs. It may be changed or removed without notice in

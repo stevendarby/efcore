@@ -80,6 +80,7 @@ namespace Microsoft.EntityFrameworkCore.Migrations.Internal
         public MigrationsModelDiffer(
             IRelationalTypeMappingSource typeMappingSource,
             IMigrationsAnnotationProvider migrationsAnnotations,
+            IRelationalAnnotationProvider relationalAnnotations,
 #pragma warning disable EF1001 // Internal EF Core API usage.
             IChangeDetector changeDetector,
 #pragma warning restore EF1001 // Internal EF Core API usage.
@@ -88,6 +89,7 @@ namespace Microsoft.EntityFrameworkCore.Migrations.Internal
         {
             Check.NotNull(typeMappingSource, nameof(typeMappingSource));
             Check.NotNull(migrationsAnnotations, nameof(migrationsAnnotations));
+            Check.NotNull(relationalAnnotations, nameof(relationalAnnotations));
 #pragma warning disable EF1001 // Internal EF Core API usage.
             Check.NotNull(changeDetector, nameof(changeDetector));
 #pragma warning restore EF1001 // Internal EF Core API usage.
@@ -96,6 +98,7 @@ namespace Microsoft.EntityFrameworkCore.Migrations.Internal
 
             TypeMappingSource = typeMappingSource;
             MigrationsAnnotations = migrationsAnnotations;
+            RelationalAnnotations = relationalAnnotations;
             ChangeDetector = changeDetector;
             UpdateAdapterFactory = updateAdapterFactory;
             CommandBatchPreparerDependencies = commandBatchPreparerDependencies;
@@ -116,6 +119,14 @@ namespace Microsoft.EntityFrameworkCore.Migrations.Internal
         ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
         protected virtual IMigrationsAnnotationProvider MigrationsAnnotations { get; }
+
+        /// <summary>
+        ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+        ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+        ///     any release. You should only use it directly in your code with extreme caution and knowing that
+        ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+        /// </summary>
+        protected virtual IRelationalAnnotationProvider RelationalAnnotations { get; }
 
         /// <summary>
         ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
@@ -386,8 +397,8 @@ namespace Microsoft.EntityFrameworkCore.Migrations.Internal
             var operations = Enumerable.Empty<MigrationOperation>();
             if (source != null && target != null)
             {
-                var sourceMigrationsAnnotations = source.GetAnnotations();
-                var targetMigrationsAnnotations = target.GetAnnotations();
+                var sourceMigrationsAnnotations = RelationalAnnotations.For(source);
+                var targetMigrationsAnnotations = RelationalAnnotations.For(target);
 
                 if (source.Collation != target.Collation
                     || HasDifferences(sourceMigrationsAnnotations, targetMigrationsAnnotations))
@@ -430,8 +441,7 @@ namespace Microsoft.EntityFrameworkCore.Migrations.Internal
             IRelationalModel? source,
             IRelationalModel? target)
         {
-            var targetMigrationsAnnotations = target?.GetAnnotations().ToList();
-
+            var targetMigrationsAnnotations = target != null ? RelationalAnnotations.For(target).ToList() : null;
             if (source == null)
             {
                 if (targetMigrationsAnnotations?.Count > 0)
@@ -457,7 +467,7 @@ namespace Microsoft.EntityFrameworkCore.Migrations.Internal
                 yield break;
             }
 
-            var sourceMigrationsAnnotations = source.GetAnnotations().ToList();
+            var sourceMigrationsAnnotations = RelationalAnnotations.For(source).ToList();
             if (HasDifferences(sourceMigrationsAnnotations, targetMigrationsAnnotations!))
             {
                 var alterDatabaseOperation = new AlterDatabaseOperation();
@@ -608,17 +618,21 @@ namespace Microsoft.EntityFrameworkCore.Migrations.Internal
             if (source.Schema != target.Schema
                 || source.Name != target.Name)
             {
-                yield return new RenameTableOperation
+                var renameTableOperation = new RenameTableOperation
                 {
                     Schema = source.Schema,
                     Name = source.Name,
                     NewSchema = target.Schema,
                     NewName = target.Name
                 };
+
+                renameTableOperation.AddAnnotations(RelationalAnnotations.For(source));
+
+                yield return renameTableOperation;
             }
 
-            var sourceMigrationsAnnotations = source.GetAnnotations();
-            var targetMigrationsAnnotations = target.GetAnnotations();
+            var sourceMigrationsAnnotations = RelationalAnnotations.For(source);
+            var targetMigrationsAnnotations = RelationalAnnotations.For(target);
 
             if (source.Comment != target.Comment
                 || HasDifferences(sourceMigrationsAnnotations, targetMigrationsAnnotations))
@@ -669,7 +683,7 @@ namespace Microsoft.EntityFrameworkCore.Migrations.Internal
                 Name = target.Name,
                 Comment = target.Comment
             };
-            createTableOperation.AddAnnotations(target.GetAnnotations());
+            createTableOperation.AddAnnotations(RelationalAnnotations.For(target));
 
             createTableOperation.Columns.AddRange(
                 GetSortedColumns(target).SelectMany(p => Add(p, diffContext, inline: true)).Cast<AddColumnOperation>());
@@ -992,8 +1006,8 @@ namespace Microsoft.EntityFrameworkCore.Migrations.Internal
             var sourceColumnType = source.StoreType ?? sourceTypeMapping.StoreType;
             var targetColumnType = target.StoreType ?? targetTypeMapping.StoreType;
 
-            var sourceMigrationsAnnotations = source.GetAnnotations();
-            var targetMigrationsAnnotations = target.GetAnnotations();
+            var sourceMigrationsAnnotations = RelationalAnnotations.For(source);
+            var targetMigrationsAnnotations = RelationalAnnotations.For(target);
 
             var isNullableChanged = source.IsNullable != target.IsNullable;
             var columnTypeChanged = sourceColumnType != targetColumnType;
@@ -1019,6 +1033,10 @@ namespace Microsoft.EntityFrameworkCore.Migrations.Internal
                     Name = target.Name,
                     IsDestructiveChange = isDestructiveChange
                 };
+
+                alterColumnOperation.OldColumn.Schema = table.Schema;
+                alterColumnOperation.OldColumn.Table = table.Name;
+                alterColumnOperation.OldColumn.Name = source.Name;
 
                 Initialize(
                     alterColumnOperation, target, targetTypeMapping,
@@ -1057,7 +1075,7 @@ namespace Microsoft.EntityFrameworkCore.Migrations.Internal
 
             Initialize(
                 operation, target, targetTypeMapping, target.IsNullable,
-                target.GetAnnotations(), inline);
+                RelationalAnnotations.For(target), inline);
 
             yield return operation;
         }
@@ -1168,7 +1186,7 @@ namespace Microsoft.EntityFrameworkCore.Migrations.Internal
                     && s.Columns.Select(p => p.Name).SequenceEqual(
                         t.Columns.Select(p => c.FindSource(p)?.Name))
                     && s.GetIsPrimaryKey() == t.GetIsPrimaryKey()
-                    && !HasDifferences(s.GetAnnotations(), t.GetAnnotations()));
+                    && !HasDifferences(RelationalAnnotations.For(s), RelationalAnnotations.For(t)));
 
         /// <summary>
         ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
@@ -1265,7 +1283,7 @@ namespace Microsoft.EntityFrameworkCore.Migrations.Internal
                     && s.PrincipalColumns.Select(c => c.Name).SequenceEqual(
                         t.PrincipalColumns.Select(c => context.FindSource(c)?.Name))
                     && s.OnDeleteAction == t.OnDeleteAction
-                    && !HasDifferences(s.GetAnnotations(), t.GetAnnotations()));
+                    && !HasDifferences(RelationalAnnotations.For(s), RelationalAnnotations.For(t)));
 
         /// <summary>
         ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
@@ -1364,7 +1382,7 @@ namespace Microsoft.EntityFrameworkCore.Migrations.Internal
         private bool IndexStructureEquals(ITableIndex source, ITableIndex target, DiffContext diffContext)
             => source.IsUnique == target.IsUnique
                 && source.Filter == target.Filter
-                && !HasDifferences(source.GetAnnotations(), target.GetAnnotations())
+                && !HasDifferences(RelationalAnnotations.For(source), RelationalAnnotations.For(target))
                 && source.Columns.Select(p => p.Name).SequenceEqual(
                     target.Columns.Select(p => diffContext.FindSource(p)?.Name));
 
@@ -1558,8 +1576,8 @@ namespace Microsoft.EntityFrameworkCore.Migrations.Internal
                 };
             }
 
-            var sourceMigrationsAnnotations = source.GetAnnotations();
-            var targetMigrationsAnnotations = target.GetAnnotations();
+            var sourceMigrationsAnnotations = RelationalAnnotations.For(source);
+            var targetMigrationsAnnotations = RelationalAnnotations.For(target);
 
             if (source.IncrementBy != target.IncrementBy
                 || source.MaxValue != target.MaxValue
@@ -1592,7 +1610,7 @@ namespace Microsoft.EntityFrameworkCore.Migrations.Internal
                 StartValue = target.StartValue
             };
 
-            yield return Initialize(operation, target, target.GetAnnotations());
+            yield return Initialize(operation, target, RelationalAnnotations.For(target));
         }
 
         /// <summary>
