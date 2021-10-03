@@ -969,15 +969,13 @@ namespace Microsoft.EntityFrameworkCore.Infrastructure
                     }
                 }
 
-                var requiredNavigationWithQueryFilter = entityType.GetNavigations()
+                foreach (var requiredNavigationWithQueryFilter in entityType.GetNavigations()
                     .Where(
                         n => !n.IsCollection
                             && n.ForeignKey.IsRequired
                             && n.IsOnDependent
-                            && n.ForeignKey.PrincipalEntityType.GetQueryFilter() != null
-                            && n.ForeignKey.DeclaringEntityType.GetQueryFilter() == null).FirstOrDefault();
-
-                if (requiredNavigationWithQueryFilter != null)
+                            && n.ForeignKey.PrincipalEntityType.GetAllBaseTypesInclusive().First().GetQueryFilter() != null
+                            && n.ForeignKey.DeclaringEntityType.GetAllBaseTypesInclusive().First().GetQueryFilter() == null))
                 {
                     logger.PossibleIncorrectRequiredNavigationWithQueryFilterInteractionWarning(
                         requiredNavigationWithQueryFilter.ForeignKey);

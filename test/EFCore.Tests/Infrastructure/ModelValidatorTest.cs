@@ -1485,6 +1485,34 @@ namespace Microsoft.EntityFrameworkCore.Infrastructure
         }
 
         [ConditionalFact]
+        public virtual void Required_navigation_with_query_filter_on_one_side_using_tph_does_issue_a_warning()
+        {
+            var modelBuilder = CreateConventionalModelBuilder();
+            modelBuilder.Entity<CarOwner>().HasMany(x => x.Cars).WithOne(x => x.Owner).IsRequired();
+            modelBuilder.Entity<CarOwner>().HasQueryFilter(x => !x.IsDeleted);
+            modelBuilder.Entity<Vehicle>();
+
+            var message = CoreResources.LogPossibleIncorrectRequiredNavigationWithQueryFilterInteraction(
+                CreateValidationLogger()).GenerateMessage(nameof(CarOwner), nameof(Car));
+
+            VerifyWarning(message, modelBuilder);
+        }
+
+        [ConditionalFact]
+        public virtual void Required_navigation_with_query_filter_on_both_sides_using_tph_doesnt_issue_a_warning()
+        {
+            var modelBuilder = CreateConventionalModelBuilder();
+            modelBuilder.Entity<CarOwner>().HasMany(x => x.Cars).WithOne(x => x.Owner).IsRequired();
+            modelBuilder.Entity<CarOwner>().HasQueryFilter(x => !x.IsDeleted);
+            modelBuilder.Entity<Vehicle>().HasQueryFilter(x => !x.IsDeleted);
+
+            var message = CoreResources.LogPossibleIncorrectRequiredNavigationWithQueryFilterInteraction(
+                CreateValidationLogger()).GenerateMessage(nameof(CarOwner), nameof(Car));
+
+            VerifyLogDoesNotContain(message, modelBuilder);
+        }
+
+        [ConditionalFact]
         public virtual void Shared_type_inheritance_throws()
         {
             var modelBuilder = CreateConventionalModelBuilder();

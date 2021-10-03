@@ -319,6 +319,28 @@ namespace Microsoft.EntityFrameworkCore.Infrastructure
             public PrincipalFour PrincipalFour { get; set; }
         }
 
+        protected abstract class SoftDeletable
+        {
+            public bool IsDeleted { get; set; }
+        }
+
+        protected class CarOwner : SoftDeletable
+        {
+            public int Id { get; set; }
+            public ICollection<Car> Cars { get; set; }
+        }
+
+        protected class Vehicle : SoftDeletable
+        {
+            public int Id { get; set; }
+        }
+
+        protected class Car : Vehicle
+        {
+            public int CarOwnerId { get; set; }
+            public CarOwner Owner { get; set; }
+        }
+
         protected ModelValidatorTestBase()
             => LoggerFactory = new ListLoggerFactory(l => l == DbLoggerCategory.Model.Validation.Name || l == DbLoggerCategory.Model.Name);
 
