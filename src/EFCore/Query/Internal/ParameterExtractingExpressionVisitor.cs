@@ -79,7 +79,7 @@ public class ParameterExtractingExpressionVisitor : ExpressionVisitor
             _evaluatableExpressions = oldEvaluatableExpressions;
             if (clearEvaluatedValues)
             {
-                _evaluatedValues.Clear();
+                //_evaluatedValues.Clear();
             }
         }
     }
@@ -274,7 +274,7 @@ public class ParameterExtractingExpressionVisitor : ExpressionVisitor
         string? parameterName;
         if (_evaluatedValues.TryGetValue(expression, out var cachedValue))
         {
-            var existingExpression = generateParameter ? cachedValue.Parameter : cachedValue.Constant;
+            var existingExpression = cachedValue.Parameter ?? cachedValue.Constant;
             if (existingExpression != null)
             {
                 return existingExpression;
@@ -337,7 +337,7 @@ public class ParameterExtractingExpressionVisitor : ExpressionVisitor
 
         var parameter = Expression.Parameter(expression.Type, parameterName);
 
-        cachedValue.Parameter = parameter;
+        cachedValue.Parameter = parameter;        
 
         return parameter;
     }
