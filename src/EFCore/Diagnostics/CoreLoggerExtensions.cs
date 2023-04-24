@@ -445,6 +445,38 @@ public static class CoreLoggerExtensions
     }
 
     /// <summary>
+    ///     Logs for the <see cref="CoreEventId.ClientEvaluationWithEntity" /> event.
+    /// </summary>
+    /// <param name="diagnostics">The diagnostics logger to use.</param>
+    public static void ClientEvaluationWithEntity(this IDiagnosticsLogger<DbLoggerCategory.Query> diagnostics)
+    {
+        var definition = CoreResources.LogClientEvaluationWithEntity(diagnostics);
+
+        if (diagnostics.ShouldLog(definition))
+        {
+            definition.Log(diagnostics);
+        }
+
+        if (diagnostics.NeedsEventData(definition, out var diagnosticSourceEnabled, out var simpleLogEnabled))
+        {
+            var eventData = new EventData(
+                definition,
+                ClientEvaluationWithEntity);
+
+            diagnostics.DispatchEventData(definition, eventData, diagnosticSourceEnabled, simpleLogEnabled);
+        }
+
+        // Debugging
+        throw new Exception("Uh oh!");
+    }
+
+    private static string ClientEvaluationWithEntity(EventDefinitionBase definition, EventData payload)
+    {
+        var d = (EventDefinition)definition;
+        return d.GenerateMessage();
+    }
+
+    /// <summary>
     ///     Logs for the <see cref="CoreEventId.QueryCompilationStarting" /> event.
     /// </summary>
     /// <param name="diagnostics">The diagnostics logger to use.</param>

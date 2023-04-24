@@ -244,6 +244,8 @@ public partial class RelationalShapedQueryCompilingExpressionVisitor : ShapedQue
         var selectExpression = (SelectExpression)shapedQueryExpression.QueryExpression;
 
         VerifyNoClientConstant(shapedQueryExpression.ShaperExpression);
+        LogClientEvaluationWithEntity(shapedQueryExpression.ShaperExpression);
+
         var querySplittingBehavior = ((RelationalQueryCompilationContext)QueryCompilationContext).QuerySplittingBehavior;
         var splitQuery = querySplittingBehavior == QuerySplittingBehavior.SplitQuery;
         var collectionCount = 0;

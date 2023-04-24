@@ -38,6 +38,7 @@ public abstract class ShapedQueryCompilingExpressionVisitor : ExpressionVisitor
     private readonly Expression _cancellationTokenParameter;
     private readonly EntityMaterializerInjectingExpressionVisitor _entityMaterializerInjectingExpressionVisitor;
     private readonly ConstantVerifyingExpressionVisitor _constantVerifyingExpressionVisitor;
+    private readonly ClientProjectionLoggingExpressionVisitor _clientProjectionLoggingExpressionVisitor;
 
     /// <summary>
     ///     Creates a new instance of the <see cref="ShapedQueryCompilingExpressionVisitor" /> class.
@@ -55,8 +56,9 @@ public abstract class ShapedQueryCompilingExpressionVisitor : ExpressionVisitor
             new EntityMaterializerInjectingExpressionVisitor(
                 dependencies.EntityMaterializerSource,
                 queryCompilationContext.QueryTrackingBehavior);
-
+        
         _constantVerifyingExpressionVisitor = new ConstantVerifyingExpressionVisitor(dependencies.TypeMappingSource);
+        _clientProjectionLoggingExpressionVisitor = new ClientProjectionLoggingExpressionVisitor(queryCompilationContext.Logger);
 
         if (queryCompilationContext.IsAsync)
         {
@@ -187,6 +189,7 @@ public abstract class ShapedQueryCompilingExpressionVisitor : ExpressionVisitor
     protected virtual Expression InjectEntityMaterializers(Expression expression)
     {
         VerifyNoClientConstant(expression);
+        LogClientEvaluationWithEntity(expression);
 
         return _entityMaterializerInjectingExpressionVisitor.Inject(expression);
     }
@@ -197,6 +200,13 @@ public abstract class ShapedQueryCompilingExpressionVisitor : ExpressionVisitor
     /// <param name="expression">An expression to verify.</param>
     protected virtual void VerifyNoClientConstant(Expression expression)
         => _constantVerifyingExpressionVisitor.Visit(expression);
+
+    /// <summary>
+    ///     Logs if the given shaper expression contains client evaluation capturing an entity.
+    /// </summary>
+    /// <param name="expression">An expression to verify.</param>
+    protected virtual void LogClientEvaluationWithEntity(Expression expression)
+        => _clientProjectionLoggingExpressionVisitor.Visit(expression);
 
     private sealed class ConstantVerifyingExpressionVisitor : ExpressionVisitor
     {
@@ -266,6 +276,26 @@ public abstract class ShapedQueryCompilingExpressionVisitor : ExpressionVisitor
             }
 
             return expression;
+        }
+    }
+
+    private sealed class ClientProjectionLoggingExpressionVisitor : ExpressionVisitor
+    {
+        private readonly IDiagnosticsLogger<DbLoggerCategory.Query> _logger;
+
+        public ClientProjectionLoggingExpressionVisitor(IDiagnosticsLogger<DbLoggerCategory.Query> logger)
+            => _logger = logger;
+
+        protected override Expression VisitMethodCall(MethodCallExpression methodCallExpression)
+        {
+            // Ignore intentional entity-capturing method calls from within EF Core, such as FetchJoinEntity.
+            if (methodCallExpression.Method.DeclaringType?.Assembly != typeof(ClientProjectionLoggingExpressionVisitor).Assembly
+                && methodCallExpression.Arguments.OfType<EntityShaperExpression>().Any())
+            {
+                _logger.ClientEvaluationWithEntity();
+            }
+
+            return base.VisitMethodCall(methodCallExpression);
         }
     }
 

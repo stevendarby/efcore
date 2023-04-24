@@ -75,6 +75,7 @@ public static class CoreEventId
         NavigationBaseIncludeIgnored,
         DistinctAfterOrderByWithoutRowLimitingOperatorWarning,
         QueryCanceled,
+        ClientEvaluationWithEntity,
 
         // Infrastructure events
         SensitiveDataLoggingEnabledWarning = CoreBaseId + 400,
@@ -324,6 +325,15 @@ public static class CoreEventId
     /// </remarks>
     public static readonly EventId QueryCanceled
         = MakeQueryId(Id.QueryCanceled);
+
+    /// <summary>
+    ///     A query is capturing an entity for client evaluation in the top level projection.
+    /// </summary>
+    /// <remarks>
+    ///     This event is in the <see cref="DbLoggerCategory.Query" /> category.
+    /// </remarks>
+    public static readonly EventId ClientEvaluationWithEntity
+        = MakeQueryId(Id.ClientEvaluationWithEntity);
 
     private static readonly string _infraPrefix = DbLoggerCategory.Infrastructure.Name + ".";
 
